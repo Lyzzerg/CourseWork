@@ -6,10 +6,10 @@ from tifffile import *
 dirtype = ("../data/train", "../data/label", "../data/test")
 
 
-def split_img(name):
-    img = imread(name + ".tif")
+def split_img(name, num):
+    img = imread("../data/" + name + num + ".tif")
     for i in range(img.shape[0]):
-        imgname = name + "/" + name + str(i) + ".tif"
+        imgname = "../data/" + name + "/" + name + num + "_" + str(i) + ".tif"
         imsave(imgname, img[i])
 
 
@@ -43,7 +43,8 @@ def cut_images(name):
 
 
 if __name__ == "__main__":
-    cut_images("train")
-    cut_images("label")
-    for i in range(0, 3):
-        split_img("cut_train"+str(i))
+    #cut_images("train")
+    #cut_images("label")
+    for j in range(4):
+        split_img("cut_train", str(j))
+        split_img("cut_label", str(j))

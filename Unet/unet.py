@@ -1,4 +1,5 @@
 import numpy
+from tifffile import imread
 from keras.callbacks import ModelCheckpoint
 from keras.layers import Conv2D, MaxPooling2D, UpSampling2D, Dropout, merge
 from keras.models import *
@@ -11,25 +12,24 @@ numpy.set_printoptions(threshold=np.inf)
 
 
 class UNet(object):
-
     def __init__(self, img_rows=768, img_cols=1024):
         self.img_rows = img_rows
         self.img_cols = img_cols
 
     def load_data(self):
-        mydata = ImageData(self.img_rows, self.img_cols)
+        mydata = ImageData(self.img_rows, self.img_cols, "../data/cut_train", "../data/cut_label")
         imgs_train, imgs_mask_train = mydata.load_train_data()
-        imgs_test = mydata.load_test_data()
-        return imgs_train, imgs_mask_train, imgs_test
+        # imgs_test = mydata.load_test_data()
+        return imgs_train, imgs_mask_train  # , imgs_test
 
     def get_unet(self):
         inputs = Input((self.img_rows, self.img_cols, 1))
 
         size = 16
-        size1 = size*2
-        size2 = size1*2
-        size3 = size2*2
-        size4 = size3*2
+        size1 = size * 2
+        size2 = size1 * 2
+        size3 = size2 * 2
+        size4 = size3 * 2
 
         conv1 = Conv2D(size, 3, activation='relu', padding='same', kernel_initializer='he_normal')(inputs)
         conv1 = Conv2D(size, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv1)
@@ -86,19 +86,20 @@ class UNet(object):
 
     def train(self):
         print("loading data")
-        imgs_train, imgs_mask_train, imgs_test = self.load_data()
+        # imgs_train, imgs_mask_train, imgs_test = self.load_data()
+        imgs_train, imgs_mask_train = self.load_data()
         print("loading data done")
         model = self.get_unet()
         print("got unet")
 
         model_checkpoint = ModelCheckpoint('unet.hdf5', monitor='loss', verbose=1, save_best_only=True)
         print('Fitting model...')
-        model.fit(imgs_train, imgs_mask_train, batch_size=1, nb_epoch=10, verbose=1, validation_split=0.2, shuffle=True,
+        model.fit(imgs_train, imgs_mask_train, batch_size=10, nb_epoch=10, verbose=1, validation_split=0.2, shuffle=True,
                   callbacks=[model_checkpoint])
 
-        #print('predict test data')
-        #imgs_mask_test = model.predict(imgs_test, batch_size=1, verbose=1)
-        #np.save('../data/npydata/imgs_mask_test.npy', imgs_mask_test)
+        # print('predict test data')
+        # imgs_mask_test = model.predict(imgs_test, batch_size=1, verbose=1)
+        # np.save('../data/npydata/imgs_mask_test.npy', imgs_mask_test)
 
     def save_img(self):
         print("saving images")
@@ -109,16 +110,19 @@ class UNet(object):
         for i in range(imgs.shape[0]):
             img = imgs[i]
             img = array_to_img(img)
-            img.save("../data/result/"+str(i)+".tif")
+            img.save("../data/result/" + str(i) + ".tif")
 
-#if __name__ == '__main__':
-    #myunet = UNet()
-    #myunet.train()
-    #model = myunet.get_unet()
-    #model.load_weights('unet.hdf5')
-    #mydata = ImageData(768, 1024)
-    #imgs_train, imgs_mask_train = mydata.load_train_data()
-    #imgs_test = mydata.load_test_data()
-    #imgs_mask_test = model.predict(imgs_test, verbose=1, batch_size=1)
-    #np.save('../data/npydata/imgs_mask_test.npy', imgs_mask_test)
-    #myunet.save_img()
+
+if __name__ == '__main__':
+    x, y = imread("../data/cut_train/cut_train0_0.tif").shape
+    myunet = UNet(x, y)
+    myunet.train()
+
+    # model = myunet.get_unet()
+    # model.load_weights('unet.hdf5')
+    # mydata = ImageData(768, 1024)
+    # imgs_train, imgs_mask_train = mydata.load_train_data()
+    # imgs_test = mydata.load_test_data()
+    # imgs_mask_test = model.predict(imgs_test, verbose=1, batch_size=1)
+    # np.save('../data/npydata/imgs_mask_test.npy', imgs_mask_test)
+    # myunet.save_img()

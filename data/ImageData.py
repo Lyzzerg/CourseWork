@@ -30,29 +30,29 @@ class ImageData:
         self.npy_path = npy_path        # path to numpy files
 
         # loading default left and right images
-        self.set_left('../data/train-volume.tif')
-        self.set_right('../data/train-volume.tif')
+        #self.set_left('../data/train-volume.tif')
+        #self.set_right('../data/train-volume.tif')
 
     def create_train_data(self):
         print('-' * 25)
         print('Creating training images')
         print('-' * 25)
         imgs = {}
-        for i in range(165):
-            imgs[i] = imread(self.data_path + "/" + str(i) + self.img_type)
+        for i in range(4):
+            for j in range(165):
+                imgs[i*165+j] = imread(self.data_path + "/cut_train" + str(i) + "_" + str(j) + self.img_type)
         print(len(imgs))
         imgdatas = np.ndarray((len(imgs), self.out_rows, self.out_cols, 1), dtype=np.uint8)
         imglabels = np.ndarray((len(imgs), self.out_rows, self.out_cols, 1), dtype=np.uint8)
-        for i in range(165):
-            img = load_img(self.data_path + "/" + str(i) + self.img_type, grayscale=True)
-            label = load_img(self.label_path + "/" + str(i) + self.img_type, grayscale=True)
-            img = img_to_array(img)
-            label = img_to_array(label)
-            imgdatas[i] = img
-            imglabels[i] = label
-            if i % 100 == 0:
-                print('Done: {0}/{1} images'.format(i, len(imgs)))
-            i += 1
+        for i in range(4):
+            print(i)
+            for j in range(0, 165):
+                img = load_img(self.data_path + "/cut_train" + str(i) + "_" + str(j) + self.img_type, grayscale=True)
+                label = load_img(self.label_path + "/cut_label" + str(i) + "_" + str(j) + self.img_type, grayscale=True)
+                img = img_to_array(img)
+                label = img_to_array(label)
+                imgdatas[i] = img
+                imglabels[i] = label
         print('loading done')
         np.save(self.npy_path + '/imgs_train.npy', imgdatas)
         np.save(self.npy_path + '/imgs_mask_train.npy', imglabels)
@@ -142,9 +142,10 @@ class ImageData:
         return 0
 
 
-#if __name__ == "__main__":
-#    mydata = ImageData(768, 1024)
-#    mydata.create_train_data()
-#    mydata.create_test_data()
-#    imgs_train, imgs_mask_train = mydata.load_train_data()
-#    imgs_test = mydata.load_test_data()
+if __name__ == "__main__":
+    x, y = imread("../data/cut_train/cut_train0_0.tif").shape
+    mydata = ImageData(x, y, "../data/cut_train", "../data/cut_label")
+    mydata.create_train_data()
+    #mydata.create_test_data()
+    imgs_train, imgs_mask_train = mydata.load_train_data()
+    #imgs_test = mydata.load_test_data()
