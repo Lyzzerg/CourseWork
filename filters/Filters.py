@@ -11,8 +11,7 @@ class Filter:
     def __init__(self, data_set: ImageData):
         self.image_data = data_set
 
-    @staticmethod
-    def __clamp(variable: float, range_a: int, range_b: int):
+    def __clamp(self, variable: float, range_a: int, range_b: int):
         if variable >= range_b:
             return range_b
         if variable <= range_a:

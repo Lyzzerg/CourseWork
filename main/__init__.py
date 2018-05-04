@@ -4,7 +4,7 @@ from tkinter.filedialog import askopenfilename, asksaveasfilename
 import scipy.misc
 from PIL import ImageTk, Image
 
-from Unet.unet import UNet
+from Unet.unet import *
 from data.ImageData import ImageData
 from interface.GUI import GUI
 from filters.Filters import Filter
@@ -174,9 +174,7 @@ window1 = GUI(root1, open_file, save_file,
 
 image_data = ImageData(768, 1024)
 
-myunet = UNet()
-model = myunet.get_unet()
-model.load_weights('../Unet/unet.hdf5')
+model, _ = load_unet(768, 1024, "unet_256_32_5_1_d5_a", 16)
 
 filters = Filter(image_data)
 

@@ -1,9 +1,6 @@
-from PIL import Image
-from tifffile import imread
 from keras.callbacks import ModelCheckpoint
-from keras.layers import Conv2D, MaxPooling2D, concatenate, UpSampling2D, Cropping2D, Conv2DTranspose, Dropout
+from keras.layers import Conv2D, MaxPooling2D, concatenate, Conv2DTranspose, Dropout
 from keras.models import *
-from keras.optimizers import *
 from keras.preprocessing.image import array_to_img
 
 from data.ImageData import ImageData
@@ -15,36 +12,24 @@ class UNet(object):
         self.img_cols = img_cols
 
     def load_data(self):
-        mydata = ImageData(self.img_rows, self.img_cols, "../data/train", "../data/label")
+        mydata = ImageData(self.img_rows, self.img_cols, "../data/cut_train", "../data/cut_label")
         imgs_train, imgs_mask_train = mydata.load_train_data()
-        # imgs_test = mydata.load_test_data()
-        return imgs_train, imgs_mask_train  # , imgs_test
+        return imgs_train, imgs_mask_train
 
-    def mean_iou(self, y_true, y_pred):
-        prec = []
-        for t in np.arange(0.5, 1.0, 0.05):
-            y_pred_ = tf.to_int32(y_pred > t)
-            score, up_opt = tf.metrics.mean_iou(y_true, y_pred_, 2)
-            K.get_session().run(tf.local_variables_initializer())
-            with tf.control_dependencies([up_opt]):
-                score = tf.identity(score)
-            prec.append(score)
-        return K.mean(K.stack(prec), axis=0)
-
-    def get_unet_same_padding(self, size):
-
+    def get_unet(self, size):
         inputs = Input((self.img_rows, self.img_cols, 1), name='in')
         s_c1 = size
         s_c2 = s_c1 * 2
         s_c3 = s_c2 * 2
         s_c4 = s_c3 * 2
         s_c5 = s_c4 * 2
-        c1 = Conv2D(s_c1, (3, 3), activation='relu', padding='same', kernel_initializer='he_normal', name='conv11')(inputs)
+        c1 = Conv2D(s_c1, (3, 3), activation='relu', padding='same', kernel_initializer='he_normal', name='conv11')(
+            inputs)
         c1 = Conv2D(s_c1, (3, 3), activation='relu', padding='same', kernel_initializer='he_normal', name='conv12')(c1)
         p1 = MaxPooling2D((2, 2), name='pool1')(c1)
 
         c2 = Conv2D(s_c2, (3, 3), activation='relu', padding='same', kernel_initializer='he_normal', name='conv21')(p1)
-        c2 = Conv2D(s_c2, (3, 3), activation='relu', padding='same', kernel_initializer='he_normal', name='conv2')(c2)
+        c2 = Conv2D(s_c2, (3, 3), activation='relu', padding='same', kernel_initializer='he_normal', name='conv22')(c2)
         p2 = MaxPooling2D((2, 2), name='pool2')(c2)
 
         c3 = Conv2D(s_c3, (3, 3), activation='relu', padding='same', kernel_initializer='he_normal', name='conv31')(p2)
@@ -78,6 +63,7 @@ class UNet(object):
         u9 = concatenate([u9, c1], axis=3, name='concat4')
         c9 = Conv2D(s_c1, (3, 3), activation='relu', padding='same', kernel_initializer='he_normal', name='conv91')(u9)
         c9 = Conv2D(s_c1, (3, 3), activation='relu', padding='same', kernel_initializer='he_normal', name='conv92')(c9)
+        c9 = Conv2D(2, (3, 3), activation='relu', padding='same', kernel_initializer='he_normal', name='conv93')(c9)
 
         outputs = Conv2D(1, (1, 1), activation='sigmoid', name='out')(c9)
 
@@ -85,73 +71,96 @@ class UNet(object):
         model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
         return model
 
-    def train(self, name, size):
+    def train(self, name, size, batch, epochs):
         print("loading data")
-        # imgs_train, imgs_mask_train, imgs_test = self.load_data()
         imgs_train, imgs_mask_train = self.load_data()
         print("loading data done")
-        model = self.get_unet_same_padding(size)
+        model = self.get_unet(size)
         print("got unet")
-
-        model_checkpoint = ModelCheckpoint(name+'.hdf5', monitor='loss', verbose=1, save_best_only=True)
+        model_checkpoint = ModelCheckpoint("../Unet/weights/"+name + '.hdf5', monitor='loss', verbose=1, save_best_only=True)
         print('Fitting model...')
-        model.fit(imgs_train, imgs_mask_train, batch_size=1, epochs=10, verbose=1, validation_split=0.2, shuffle=True,
-                  callbacks=[model_checkpoint])
+        model.fit(imgs_train, imgs_mask_train, batch_size=batch, epochs=epochs, verbose=1, validation_split=0.2,
+                  shuffle=True, callbacks=[model_checkpoint])
 
-        # print('predict test data')
-        # imgs_mask_test = model.predict(imgs_test, batch_size=1, verbose=1)
-        # np.save('../data/npydata/imgs_mask_test.npy', imgs_mask_test)
 
-    def save_img(self):
-        print("saving images")
-        imgs = np.load('../data/npydata/imgs_mask_test.npy')
+def save_img():
+    print("saving images")
+    imgs = np.load('../data/npydata/imgs_mask_test.npy')
 
-        imgs = imgs.astype('float32')
-        #imgs[imgs >= 0.5] = 1
-        #imgs[imgs < 0.5] = 0
-        imgs *= 255
-        for i in range(imgs.shape[0]):
-            img = imgs[i]
-            img = array_to_img(img)
-            img.save("../data/result/" + str(i) + ".tif")
+    imgs = imgs.astype('float32')
+    imgs *= 255
+    for i in range(imgs.shape[0]):
+        img = imgs[i]
+        img = array_to_img(img)
+        img.save("../data/result/" + str(i) + ".tif")
+
+
+def train_unet(x, y, callback_name, flkernels_count, batch_size, epochs):
+    """
+
+    :param x: first dimention of image size
+    :param y: second dimension of image size
+    :param callback_name: name for model weights file
+    :param flkernels_count: first layer kernels count (every next layer kernels_count is previous*2)
+    :param batch_size: size of batch data
+    :param epochs: epochs count
+    """
+    myunet = UNet(x, y)
+    myunet.train(callback_name, flkernels_count, batch_size, epochs)
+
+
+def load_unet(x, y, callback_name, flkernels_count):
+    myunet = UNet(x, y)
+    model = myunet.get_unet(flkernels_count)
+    model.load_weights("../Unet/weights/" + callback_name + ".hdf5")
+    mydata = ImageData(x, y)
+    imgs_test = mydata.load_test_data_2()
+
+    return model, imgs_test
+
+
+def predict_unet(x, y, callback_name, flkernels_count):
+    model, imgs_test = load_unet(x, y, callback_name, flkernels_count)
+    imgs_mask_test = model.predict(imgs_test, verbose=1, batch_size=1)
+    np.save('../data/npydata/imgs_mask_test.npy', imgs_mask_test)
+    save_img()
+
+
+def get_intermediate_layer_input(x, y, callback_name, flkernels_count, layer_name):
+    model, imgs_test = load_unet(x, y, callback_name, flkernels_count)
+    intermediate_layer_model = Model(inputs=model.input, outputs=model.get_layer(layer_name).output)
+    intermediate_output = intermediate_layer_model.predict(imgs_test[0:10], batch_size=1, verbose=1)
+    x, y, z, _ = intermediate_output.shape
+    res = np.zeros((x, y, z, 1))
+    res[:, :, :, 0] = intermediate_output[..., 0]
+    np.save('../data/npydata/imgs_mask_test.npy', res)
+    save_img()
 
 
 if __name__ == '__main__':
-    #x, y = imread("../data/cut_e_mirror_train/cut_e_mirror_train_0.tif").shape
-    #print(x, y)
-    myunet = UNet(768, 1024)
-    #myunet = UNet(256, 256)
-    myunet.train('unet_1024_20_10_1_d5_a', 20)
-    #myunet = UNet(768, 1024)
-    model = myunet.get_unet_same_padding(20)
-    model.load_weights('unet_1024_20_10_1_d5_a.hdf5')
+    x_t, x_p = 256, 768
+    y_t, y_p = 256, 1024
 
-    #mydata = ImageData(768, 1024)
-    mydata = ImageData(256, 256, "../data/cut_train", "../data/cut_label")
-    # imgs_train, imgs_mask_train = mydata.load_train_data()
-    imgs_test = mydata.load_test_data_2()
-    # imgs_test, _ = mydata.load_test_data_2()
-
-    #img = array_to_img(label_test[0])
-    #img.show()
-
+    callback_name = "unet_256_32_5_1_d5_a"
+    flkernels_count = 16
+    batch_size = 4
+    epochs = 5
     """
-    intermediate_layer_model = Model(inputs=model.input,
-                                     outputs=model.get_layer('out').output)
-    intermediate_output = intermediate_layer_model.predict(imgs_test[0:10], batch_size=1, verbose=1)
+    flk = [8]
 
-    print(intermediate_output.shape)
+    for i in flk:
+        callback_name = "256x256_k" + str(i) + "_e5_b4"
+        train_unet(x_t, y_t, callback_name, i, batch_size, epochs)
 
-    x, y, z, _ = intermediate_output.shape
-
-    res = np.zeros((x, y, z, 1))
-    res[:, :, :, 0] = intermediate_output[..., 0]
-    # res[:, :, :, 0] = 0
+    for i in flk:
+        callback_name = "256x256_k" + str(i) + "_e10_b4"
+        train_unet(x_t, y_t, callback_name, i, 10, epochs)
     """
+    #predict_unet(x_p, y_p, callback_name, flkernels_count)
     #"""
-    imgs_mask_test = model.predict(imgs_test[0:10], verbose=1, batch_size=1)
-
-    # """
-    np.save('../data/npydata/imgs_mask_test.npy', imgs_mask_test)
-    #np.save('../data/npydata/imgs_mask_test.npy', res)
-    myunet.save_img()
+    flkernels_count =   16
+    batch_size = 1
+    callback_name = "256x256_k" + str(flkernels_count) + "_e5_b" + str(batch_size)
+    layer_name = "out"
+    get_intermediate_layer_input(x_p, y_p, callback_name, flkernels_count, layer_name)
+    #"""

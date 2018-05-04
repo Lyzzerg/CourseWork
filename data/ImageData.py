@@ -31,8 +31,8 @@ class ImageData:
         self.npy_path = npy_path        # path to numpy files
 
         # loading default left and right images
-        #self.set_left('../data/train-volume.tif')
-        #self.set_right('../data/train-volume.tif')
+        self.set_left('../data/train-volume.tif')
+        self.set_right('../data/train-volume.tif')
 
     def create_train_data(self):
         print('-' * 25)
@@ -130,7 +130,7 @@ class ImageData:
         for i in range(165):
                 imgs[i] = imread(self.test_path + "/" + str(i) + self.img_type)
         print(len(imgs))
-        imgdatas = np.ndarray((len(imgs), self.out_rows, self.out_cols, 1), dtype=np.uint8)
+        imgdatas = np.ndarray((len(imgs), self.out_rows*3, self.out_cols*4, 1), dtype=np.uint8)
         for i in range(165):
                 img = load_img(self.test_path + "/" + str(i) + self.img_type,
                                grayscale=True)
@@ -216,9 +216,9 @@ class ImageData:
 
 if __name__ == "__main__":
     #x, y = imread("../data/cut_e_mirror_train/cut_e_mirror_train_0.tif").shape
-    #mydata = ImageData(256, 256, "../data/cut_train", "../data/cut_label")
-    mydata = ImageData(768, 1024, "../data/train", "../data/label")
-    mydata.create_train_data()
+    mydata = ImageData(256, 256, "../data/cut_train", "../data/cut_label")
+    #mydata = ImageData(768, 1024, "../data/train", "../data/label")
+    mydata.create_train_data_2()
     mydata.create_test_data_2()
     imgs_train, imgs_mask_train = mydata.load_train_data()
     #print(imgs_train[0])
