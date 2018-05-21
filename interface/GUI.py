@@ -4,6 +4,7 @@ from tkinter.messagebox import askyesno
 
 from Unet.unet import UNet
 from data.ImageData import ImageData
+import os
 
 
 class GUI:
@@ -78,7 +79,9 @@ class GUI:
         return 1
 
     def analyze_button_func(self, event):
-        self.network.get_intermediate_layer_images("unet_768x1024_16_10_1", 16, "pool2")
+        weights_name, flkernel_size, layername = self.nn_params_window()
+        self.network.get_intermediate_layer_images(weights_name, flkernel_size, layername)
+        # self.network.get_intermediate_layer_images("unet_768x1024_16_10_1", 16, "pool2")
 
     def __open(self, datatype):
         file_opened = 0
@@ -122,50 +125,58 @@ class GUI:
     def open_test_images(self):
         self.__open(self.data.datatypes[2])
 
+    def nn_params_window(self):
 
-
-
-
-
-
-    def new_window(self, value):
-        result = -1
-
-        v = StringVar()
+        flkernel_size = StringVar()
+        layername = StringVar()
 
         modal_window = Toplevel(self.root)
 
         modal_frame = Frame(modal_window)
 
-        input_window = Entry(modal_frame, textvariable=v)
+        dir = '../Unet/weights'
+        files = os.listdir(dir)
+        print(files)
+
+        weights_name_list = Listbox(modal_frame)
+        for i in files:
+            weights_name_list.insert(0, i[:-5])
+        flkernel_size_textbox = Entry(modal_frame, textvariable=flkernel_size)
+        layername_textbox = Entry(modal_frame, textvariable=layername)
 
         button_ok = Button(modal_frame, text='OK')
+        result1, result2, result3 = '', '', ''
 
         def close_modal(event):
-            nonlocal result
+            nonlocal result1, result2, result3
+            result1 = str(weights_name_list.get(ACTIVE))
+            print(result1)
             try:
-                result = float(input_window.get())
+                result2 = int(flkernel_size_textbox.get())
+            except ValueError:
+                flkernel_size.set('Wrong input!')
+            try:
+                result3 = str(layername_textbox.get())
                 modal_window.destroy()
             except ValueError:
-                v.set('Wrong input!')
+                layername.set('Wrong input!')
 
         button_ok.bind('<Button-1>', close_modal)
 
         modal_frame.pack()
 
-        modal_window.wm_title(value)
-        x_ = (modal_window.winfo_screenwidth() - modal_window.winfo_reqwidth()) / 2
-        y_ = (modal_window.winfo_screenheight() - modal_window.winfo_reqheight()) / 2
-        modal_window.wm_geometry('+%d+%d' % (x_, y_))
+        modal_window.wm_title("Neural network params")
         modal_window.focus_force()
-        modal_window.geometry('300x50')
+        modal_window.geometry('300x270')
 
-        input_window.pack()
+        weights_name_list.pack()
+        flkernel_size_textbox.pack()
+        layername_textbox.pack()
         button_ok.pack()
 
         modal_window.wait_window()
 
-        return result
+        return result1, result2, result3
 
     def close_win(self):
         if askyesno('Save program', 'Do u want to save files?'):
