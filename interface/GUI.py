@@ -1,112 +1,132 @@
 from tkinter import *
+from tkinter.filedialog import askopenfilename
 from tkinter.messagebox import askyesno
+
+from Unet.unet import UNet
+from data.ImageData import ImageData
 
 
 class GUI:
-    root = 'main window'
-    main_menu = 'menu'
-    first_menu = 'file menu'
-    second_menu = 'filters menu'
 
-    label = 'image before'
-    label2 = 'image after'
-    label3 = 'slices quantity'
-
-    button_next = 'next slice'
-    button_previous = 'previous slice'
-    button_analyze = 'u-net'
-
-    save_func = ''
-
-    def __init__(self, root, open_func, save_func,
-                 invert_filter, gradual_filter, logarithmic_filter, cancel_func,
-                 next_button_func, previous_button_func, unet_enable_func, unet_disable_func, analyze_func):
+    def __init__(self, root: Tk, data: ImageData, network: UNet):
+        self.network = network
+        self.data = data
         self.root = root
-        self.root.wm_title('Tiff slices viewer')
-        self.add_first_menu(open_func, save_func)
-        self.add_second_menu(invert_filter, gradual_filter, logarithmic_filter, cancel_func)
-        self.add_third_menu(unet_enable_func, unet_disable_func)
-        self.add_buttons(next_button_func, previous_button_func)
+        self.root.resizable(width=False, height=False)
+        self.root.geometry('{}x{}'.format(1400, 520))
         self.add_labels()
-        self.save_func = save_func
-        self.button_analyze = Button(text='Analyze')
-        self.button_analyze.bind('<Button-1>', analyze_func)
-        self.button_analyze.pack()
+        self.add_buttons()
+        self.add_first_menu()
+        self.add_second_menu()
 
     def start(self):
         self.root.mainloop()
 
+    def add_buttons(self):
+        self.button_next = Button(text='Next Slice')
+        self.button_previous = Button(text='Previous Slice')
+        self.button_analyze = Button(text='Analyze')
+        self.button_next.bind('<Button-1>', self.next_button_func)
+        self.button_previous.bind('<Button-1>', self.previous_button_func)
+        self.button_analyze.bind('<Button-1>', self.analyze_button_func)
+        self.button_previous.pack(side=BOTTOM)
+        self.button_next.pack(side=BOTTOM)
+        self.button_analyze.pack(side=TOP)
         return 1
 
     def add_labels(self):
         self.label = Label(self.root)
         self.label2 = Label(self.root)
-        self.label3 = Label(self.root, text='Slice №\n1')
-
+        self.label3 = Label(self.root, text='Slice №\n')
         self.label.pack(side=LEFT)
         self.label2.pack(side=RIGHT)
         self.label3.pack(side=TOP)
-
         return 1
 
-    def add_buttons(self, next_button_func, previous_button_func):
-        self.button_next = Button(text='Next Slice')
-        self.button_previous = Button(text='Previous Slice')
-        self.button_next.bind('<Button-1>', next_button_func)
-        self.button_previous.bind('<Button-1>', previous_button_func)
-        self.button_previous.pack(side=BOTTOM)
-        self.button_next.pack(side=BOTTOM)
-
-        return 1
-
-    def add_first_menu(self, open_func, save_func):
+    def add_first_menu(self):
         self.main_menu = Menu(self.root)
         self.root.config(menu=self.main_menu)
         self.first_menu = Menu(self.main_menu)
-
-        self.main_menu.add_cascade(label='File', menu=self.first_menu)
-
-        self.first_menu.add_command(label='Open', command=open_func)
-        self.first_menu.add_command(label='Save as', command=save_func)
-        self.first_menu.add_command(label='Exit', command=self.close_win)
-
+        self.main_menu.add_cascade(label='Load Data', menu=self.first_menu)
+        self.first_menu.add_command(label='Train Images', command=self.open_train_images)
+        self.first_menu.add_command(label='Train Labels', command=self.open_train_labels)
+        self.first_menu.add_command(label='Test Images', command=self.open_test_images)
         return 1
 
-    def add_second_menu(self, invert_filter, gradual_filter, logarithmic_filter, cancel_func):
+    def add_second_menu(self):
         self.second_menu = Menu(self.main_menu)
-
-        self.main_menu.add_cascade(label='Edit', menu=self.second_menu)
-        self.second_menu.add_command(label='inversion', command=invert_filter)
-        self.second_menu.add_command(label='gradual', command=gradual_filter)
-        self.second_menu.add_command(label='logarithmic', command=logarithmic_filter)
-        self.second_menu.add_command(label='cancel changes', command=cancel_func)
-
+        self.main_menu.add_cascade(label='Show Data', menu=self.second_menu)
+        self.second_menu.add_command(label='Train Images', command=self.show_train_images)
+        self.second_menu.add_command(label='Train Labels', command=self.show_train_labels)
+        self.second_menu.add_command(label='Test Images', command=self.show_test_images)
+        self.second_menu.add_command(label='Test Labels', command=self.show_test_labels)
         return 1
 
-    def add_third_menu(self, unet_enable_func, unet_disable_func):
-        self.second_menu = Menu(self.main_menu)
+    def __labels_renew(self):
+        self.label.configure(image=self.data.img)
+        self.label2.configure(image=self.data.img)
+        self.label3.configure(text='Slice №\n' + str(self.data.current_num + 1))
 
-        self.main_menu.add_cascade(label='U-Net', menu=self.second_menu)
-        self.second_menu.add_command(label='enable', command=unet_enable_func)
-        self.second_menu.add_command(label='disable', command=unet_disable_func)
+    def next_button_func(self, event):
+        self.data.next()
+        self.__labels_renew()
         return 1
 
-    def change_first_label(self, new_image):
-        self.label.configure(image=new_image)
-        self.label.image = new_image
-
+    def previous_button_func(self, event):
+        self.data.previous()
+        self.__labels_renew()
         return 1
 
-    def change_second_label(self, new_image):
-        self.label2.configure(image=new_image)
-        self.label2.image = new_image
+    def analyze_button_func(self, event):
+        self.network.get_intermediate_layer_images("unet_768x1024_16_10_1", 16, "pool2")
 
-        return 1
+    def __open(self, datatype):
+        file_opened = 0
 
-    def change_third_label(self, new_num):
-        self.label3.configure(text='Slice №\n' + str(new_num))
+        while file_opened == 0:
+            try:
+                filename = askopenfilename(initialdir='../', title="Select " + datatype,
+                                           filetypes=[('TIF files', '*.tif')])
+                file_opened = 1
 
-        return 1
+                self.data.load_data(filename, datatype)
+            except FileNotFoundError:
+                file_opened = 1
+            except OSError:
+                file_opened = 0
+
+        return file_opened
+
+    def __show(self, datatype):
+        self.data.look_at(datatype)
+        self.__labels_renew()
+
+    def show_train_images(self):
+        self.__show(self.data.datatypes[0])
+
+    def show_train_labels(self):
+        self.__show(self.data.datatypes[1])
+
+    def show_test_images(self):
+        self.__show(self.data.datatypes[2])
+
+    def show_test_labels(self):
+        self.__show(self.data.datatypes[3])
+
+    def open_train_images(self):
+        self.__open(self.data.datatypes[0])
+
+    def open_train_labels(self):
+        self.__open(self.data.datatypes[1])
+
+    def open_test_images(self):
+        self.__open(self.data.datatypes[2])
+
+
+
+
+
+
 
     def new_window(self, value):
         result = -1

@@ -1,22 +1,21 @@
+from tkinter import Tk
+
 from keras.callbacks import ModelCheckpoint
 from keras.layers import Conv2D, MaxPooling2D, concatenate, Conv2DTranspose, Dropout
 from keras.models import *
 from keras.preprocessing.image import array_to_img
+from skimage import io
 
 from data.ImageData import ImageData
 
 
 class UNet(object):
-    def __init__(self, img_rows=768, img_cols=1024):
-        self.img_rows = img_rows
-        self.img_cols = img_cols
+    def __init__(self, data):
+        self.data = data
+        self.img_rows = data.shape[1]
+        self.img_cols = data.shape[2]
 
-    def load_data(self):
-        mydata = ImageData(self.img_rows, self.img_cols, "../data/cut_train", "../data/cut_label")
-        imgs_train, imgs_mask_train = mydata.load_train_data()
-        return imgs_train, imgs_mask_train
-
-    def get_unet(self, size):
+    def __get_model(self, size):
         inputs = Input((self.img_rows, self.img_cols, 1), name='in')
         s_c1 = size
         s_c2 = s_c1 * 2
@@ -71,80 +70,71 @@ class UNet(object):
         model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
         return model
 
-    def train(self, name, size, batch, epochs):
+    def train(self, callback_name, flkernel_count, batch_size, epochs):
+        """
+        :param callback_name: name for model weights file
+        :param flkernel_count: first layer kernels count (every next layer kernels_count is previous*2)
+        :param batch_size: size of batch
+        :param epochs: epochs count
+        :return:
+        """
         print("loading data")
-        imgs_train, imgs_mask_train = self.load_data()
+        imgs_train, imgs_mask_train = self.data.load_train_data()
         print("loading data done")
-        model = self.get_unet(size)
+        model = self.__get_model(flkernel_count)
         print("got unet")
-        model_checkpoint = ModelCheckpoint("../Unet/weights/"+name + '.hdf5', monitor='loss', verbose=1, save_best_only=True)
+        model_checkpoint = ModelCheckpoint("../Unet/weights/" + callback_name + '.hdf5', monitor='loss', verbose=1,
+                                           save_best_only=True)
         print('Fitting model...')
-        model.fit(imgs_train, imgs_mask_train, batch_size=batch, epochs=epochs, verbose=1, validation_split=0.2,
+        model.fit(imgs_train, imgs_mask_train, batch_size=batch_size, epochs=epochs, verbose=1, validation_split=0.2,
                   shuffle=True, callbacks=[model_checkpoint])
 
+    def get_model_with_weights(self, precalc_weights_fname, flkernels_count):
+        model = self.__get_model(flkernels_count)
+        model.load_weights("../Unet/weights/" + precalc_weights_fname + ".hdf5")
+        return model
 
-def save_img():
-    print("saving images")
-    imgs = np.load('../data/npydata/imgs_mask_test.npy')
+    def predict(self, model):
+        imgs_mask_test = model.predict(self.data.test_images, verbose=1, batch_size=1)
+        np.save('../data/npydata/imgs_mask_test.npy', imgs_mask_test)
+        self.save_img()
 
-    imgs = imgs.astype('float32')
-    imgs *= 255
-    for i in range(imgs.shape[0]):
-        img = imgs[i]
-        img = array_to_img(img)
-        img.save("../data/result/" + str(i) + ".tif")
+    def get_intermediate_layer_images(self, callback_name, flkernels_count, layer_name):
+        model = self.get_model_with_weights(callback_name, flkernels_count)
+        test_images = self.data.load_test_data()
+        intermediate_layer_model = Model(inputs=model.input, outputs=model.get_layer(layer_name).output)
+        intermediate_output = intermediate_layer_model.predict(test_images[0:10], batch_size=1, verbose=1)
+        x, y, z, k = intermediate_output.shape
+        print(x, y, z, k)
+        res = np.zeros((k, y, z, 1))
+        for i in range(k):
+            res[i, :, :, 0] = intermediate_output[0, ..., i]
+        np.save('../data/npydata/imgs_mask_test.npy', res)
+        self.save_img()
 
-
-def train_unet(x, y, callback_name, flkernels_count, batch_size, epochs):
-    """
-
-    :param x: first dimention of image size
-    :param y: second dimension of image size
-    :param callback_name: name for model weights file
-    :param flkernels_count: first layer kernels count (every next layer kernels_count is previous*2)
-    :param batch_size: size of batch data
-    :param epochs: epochs count
-    """
-    myunet = UNet(x, y)
-    myunet.train(callback_name, flkernels_count, batch_size, epochs)
-
-
-def load_unet(x, y, callback_name, flkernels_count):
-    myunet = UNet(x, y)
-    model = myunet.get_unet(flkernels_count)
-    model.load_weights("../Unet/weights/" + callback_name + ".hdf5")
-    mydata = ImageData(x, y)
-    imgs_test = mydata.load_test_data_2()
-
-    return model, imgs_test
-
-
-def predict_unet(x, y, callback_name, flkernels_count):
-    model, imgs_test = load_unet(x, y, callback_name, flkernels_count)
-    imgs_mask_test = model.predict(imgs_test, verbose=1, batch_size=1)
-    np.save('../data/npydata/imgs_mask_test.npy', imgs_mask_test)
-    save_img()
-
-
-def get_intermediate_layer_input(x, y, callback_name, flkernels_count, layer_name):
-    model, imgs_test = load_unet(x, y, callback_name, flkernels_count)
-    intermediate_layer_model = Model(inputs=model.input, outputs=model.get_layer(layer_name).output)
-    intermediate_output = intermediate_layer_model.predict(imgs_test[0:10], batch_size=1, verbose=1)
-    x, y, z, _ = intermediate_output.shape
-    res = np.zeros((x, y, z, 1))
-    res[:, :, :, 0] = intermediate_output[..., 0]
-    np.save('../data/npydata/imgs_mask_test.npy', res)
-    save_img()
+    def save_img(self):
+        print("saving images")
+        imgs = np.load('../data/npydata/imgs_mask_test.npy')
+        imgs = imgs.astype('float32')
+        imgs *= 255
+        x, y, z, _ = imgs.shape
+        imgarr = np.zeros((x, y, z), 'uint8')
+        for i in range(imgs.shape[0]):
+            imgarr[i] = array_to_img(imgs[i])
+        io.imsave("../data/result-label-volume.tif", imgarr)
+        self.data.load_data("../data/result-label-volume.tif", self.data.datatypes[3])
 
 
 if __name__ == '__main__':
-    x_t, x_p = 256, 768
-    y_t, y_p = 256, 1024
-
-    callback_name = "unet_256_32_5_1_d5_a"
+    callback_name = "unet_768x1024_16_10_1"
     flkernels_count = 16
-    batch_size = 4
-    epochs = 5
+    epochs = 10
+    batch_size = 1
+    root = Tk()
+    data = ImageData()
+    unet = UNet(data)
+    # unet.train(callback_name, flkernels_count, batch_size, epochs)
+
     """
     flk = [8]
 
@@ -156,11 +146,11 @@ if __name__ == '__main__':
         callback_name = "256x256_k" + str(i) + "_e10_b4"
         train_unet(x_t, y_t, callback_name, i, 10, epochs)
     """
-    #predict_unet(x_p, y_p, callback_name, flkernels_count)
-    #"""
+    unet.get_intermediate_layer_images(callback_name, flkernels_count, "pool2")
+    """
     flkernels_count =   16
     batch_size = 1
     callback_name = "256x256_k" + str(flkernels_count) + "_e5_b" + str(batch_size)
     layer_name = "out"
     get_intermediate_layer_input(x_p, y_p, callback_name, flkernels_count, layer_name)
-    #"""
+    """
