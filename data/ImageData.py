@@ -59,35 +59,46 @@ class ImageData:
         if datatype in self.datatypes:
             if datatype == self.datatypes[0]:
                 self.train_images = io.imread(filename)
+                self.create_train_images()
             else:
                 if datatype == self.datatypes[1]:
                     self.train_labels = io.imread(filename)
+                    self.create_train_labels()
                 else:
                     if datatype == self.datatypes[2]:
                         self.test_images = io.imread(filename)
                         self.shape = self.test_images.shape
+                        self.create_test_data()
                     else:
                         if datatype == self.datatypes[3]:
                             self.test_labels = io.imread(filename)
             self.look_at(datatype)
 
-
     #U-Net Data Processing
+
+    def create_train_images(self):
+        imgdatas = self.train_images
+        x, y, z = imgdatas.shape
+        imgdatas2 = np.ndarray((x, y, z, 1), dtype=np.uint8)
+        imgdatas2[:, :, :, 0] = imgdatas
+        np.save("../data/npydata/imgs_train.npy", imgdatas2)
+        return 1
+
+    def create_train_labels(self):
+        imglabels = self.train_labels
+        x, y, z = imglabels.shape
+        imglabels2 = np.ndarray((x, y, z, 1), dtype=np.uint8)
+        imglabels2[:, :, :, 0] = imglabels
+        np.save("../data/npydata/imgs_mask_train.npy", imglabels2)
+        return 1
 
     def create_train_data(self):
         print('-' * 25)
         print('Creating training images')
         print('-' * 25)
-        imgdatas = self.train_images
-        imglabels = self.train_labels
-        x,y,z = imgdatas.shape
-        imgdatas2 = np.ndarray((x, y, z, 1), dtype=np.uint8)
-        imglabels2 = np.ndarray((x, y, z, 1), dtype=np.uint8)
-        imgdatas2[:, :, :, 0] = imgdatas
-        imglabels2[:, :, :, 0] = imglabels
+        self.create_train_images()
+        self.create_train_labels()
         print('loading done')
-        np.save("../data/npydata/imgs_train.npy", imgdatas2)
-        np.save("../data/npydata/imgs_mask_train.npy", imglabels2)
         print('Saving to .npy files done.')
 
     def create_test_data(self):

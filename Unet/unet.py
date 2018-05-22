@@ -12,6 +12,10 @@ from data.ImageData import ImageData
 class UNet(object):
     def __init__(self, data):
         self.data = data
+        self.data.create_train_data()
+        self.train_images, self.train_mask = data.load_train_data()
+        self.data.create_test_data()
+        self.test_images = data.load_test_data()
         self.img_rows = data.shape[1]
         self.img_cols = data.shape[2]
 
@@ -79,14 +83,13 @@ class UNet(object):
         :return:
         """
         print("loading data")
-        imgs_train, imgs_mask_train = self.data.load_train_data()
         print("loading data done")
         model = self.__get_model(flkernel_count)
         print("got unet")
         model_checkpoint = ModelCheckpoint("../Unet/weights/" + callback_name + '.hdf5', monitor='loss', verbose=1,
                                            save_best_only=True)
         print('Fitting model...')
-        model.fit(imgs_train, imgs_mask_train, batch_size=batch_size, epochs=epochs, verbose=1, validation_split=0.2,
+        model.fit(self.train_images, self.train_mask, batch_size=batch_size, epochs=epochs, verbose=1, validation_split=0.2,
                   shuffle=True, callbacks=[model_checkpoint])
 
     def get_model_with_weights(self, precalc_weights_fname, flkernels_count):
@@ -95,15 +98,14 @@ class UNet(object):
         return model
 
     def predict(self, model):
-        imgs_mask_test = model.predict(self.data.test_images, verbose=1, batch_size=1)
+        imgs_mask_test = model.predict(self.test_images, verbose=1, batch_size=1)
         np.save('../data/npydata/imgs_mask_test.npy', imgs_mask_test)
         self.save_img()
 
     def get_intermediate_layer_images(self, callback_name, flkernels_count, layer_name):
         model = self.get_model_with_weights(callback_name, flkernels_count)
-        test_images = self.data.load_test_data()
         intermediate_layer_model = Model(inputs=model.input, outputs=model.get_layer(layer_name).output)
-        intermediate_output = intermediate_layer_model.predict(test_images[0:10], batch_size=1, verbose=1)
+        intermediate_output = intermediate_layer_model.predict(self.test_images[0:10], batch_size=1, verbose=1)
         x, y, z, k = intermediate_output.shape
         print(x, y, z, k)
         res = np.zeros((k, y, z, 1))
@@ -146,7 +148,8 @@ if __name__ == '__main__':
         callback_name = "256x256_k" + str(i) + "_e10_b4"
         train_unet(x_t, y_t, callback_name, i, 10, epochs)
     """
-    unet.get_intermediate_layer_images(callback_name, flkernels_count, "pool2")
+    #unet.get_intermediate_layer_images(callback_name, flkernels_count, "pool2")
+    unet.predict(unet.get_model_with_weights("unet_768x1024_16_10_1", 16))
     """
     flkernels_count =   16
     batch_size = 1
