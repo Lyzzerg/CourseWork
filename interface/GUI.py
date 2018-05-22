@@ -143,8 +143,8 @@ class GUI:
         modal_frame = Frame(modal_window)
         modal_window.resizable(width=False, height=False)
 
-        label1 = Label(modal_frame, text='Callback name')
-        label2 = Label(modal_frame, text='FL kernel count')
+        label1 = Label(modal_frame, text='Weights name')
+        label2 = Label(modal_frame, text='FL kernels count')
         label5 = Label(modal_frame, text='')
 
         dir = '../Unet/weights'
