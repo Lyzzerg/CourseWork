@@ -78,17 +78,21 @@ class ImageData:
 
     def create_train_images(self):
         imgdatas = self.train_images
+        imgdatass = io.imread("../data/test-volume.tif")
         x, y, z = imgdatas.shape
-        imgdatas2 = np.ndarray((x, y, z, 1), dtype=np.uint8)
-        imgdatas2[:, :, :, 0] = imgdatas
+        imgdatas2 = np.ndarray((x+x, y, z, 1), dtype=np.uint8)
+        imgdatas2[0:x, :, :, 0] = imgdatas
+        imgdatas2[x:x+x, :, :, 0] = imgdatass
         np.save("../data/npydata/imgs_train.npy", imgdatas2)
         return 1
 
     def create_train_labels(self):
         imglabels = self.train_labels
+        imglabelss = io.imread("../data/test-label.tif")
         x, y, z = imglabels.shape
-        imglabels2 = np.ndarray((x, y, z, 1), dtype=np.uint8)
-        imglabels2[:, :, :, 0] = imglabels
+        imglabels2 = np.ndarray((x+x, y, z, 1), dtype=np.uint8)
+        imglabels2[0:x, :, :, 0] = imglabels
+        imglabels2[x:x+x, :, :, 0] = imglabelss
         np.save("../data/npydata/imgs_mask_train.npy", imglabels2)
         return 1
 

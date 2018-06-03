@@ -1,6 +1,6 @@
 from tkinter import Tk
 
-from keras.callbacks import ModelCheckpoint
+from keras.callbacks import ModelCheckpoint, TensorBoard
 from keras.layers import Conv2D, MaxPooling2D, concatenate, Conv2DTranspose, Dropout
 from keras.models import *
 from keras.preprocessing.image import array_to_img
@@ -8,13 +8,24 @@ from skimage import io
 
 from data.ImageData import ImageData
 
+smooth = 1.
+
+
+def dice_coef(y_true, y_pred):
+    y_true_f = K.flatten(y_true)
+    y_pred_f = K.flatten(y_pred)
+    intersection = K.sum(y_true_f * y_pred_f)
+    return (2. * intersection + smooth) / (K.sum(y_true_f * y_true_f) + K.sum(y_pred_f * y_pred_f) + smooth)
+
+
+def dice_coef_loss(y_true, y_pred):
+    return smooth - dice_coef(y_true, y_pred)
+
 
 class UNet(object):
     def __init__(self, data):
         self.data = data
-        self.data.create_train_data()
         self.train_images, self.train_mask = data.load_train_data()
-        self.data.create_test_data()
         self.test_images = data.load_test_data()
         self.img_rows = data.shape[1]
         self.img_cols = data.shape[2]
@@ -71,7 +82,7 @@ class UNet(object):
         outputs = Conv2D(1, (1, 1), activation='sigmoid', name='out')(c9)
 
         model = Model(inputs=[inputs], outputs=[outputs])
-        model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+        model.compile(optimizer='adam', loss=dice_coef_loss, metrics=[dice_coef, 'accuracy'])
         return model
 
     def train(self, callback_name, flkernel_count, batch_size, epochs):
@@ -88,19 +99,22 @@ class UNet(object):
         print("got unet")
         model_checkpoint = ModelCheckpoint("../Unet/weights/" + callback_name + '.hdf5', monitor='loss', verbose=1,
                                            save_best_only=True)
+
+        tensorboard_checkpoint = TensorBoard(log_dir='../Unet', histogram_freq=0, write_graph=True, batch_size=2,
+                                             write_images=True, write_grads=True, embeddings_metadata=True)
         print('Fitting model...')
-        model.fit(self.train_images, self.train_mask, batch_size=batch_size, epochs=epochs, verbose=1, validation_split=0.2,
-                  shuffle=True, callbacks=[model_checkpoint])
+        model.fit(self.train_images[0:165], self.train_mask[0:165], batch_size=batch_size, epochs=epochs, verbose=1,
+                  validation_split=0.2, shuffle=True, callbacks=[tensorboard_checkpoint, model_checkpoint])
 
     def get_model_with_weights(self, precalc_weights_fname, flkernels_count):
         model = self.__get_model(flkernels_count)
         model.load_weights("../Unet/weights/" + precalc_weights_fname + ".hdf5")
         return model
 
-    def predict(self, model):
+    def predict(self, model, n):
         imgs_mask_test = model.predict(self.test_images, verbose=1, batch_size=1)
         np.save('../data/npydata/imgs_mask_test.npy', imgs_mask_test)
-        self.save_img()
+        self.save_img(n)
 
     def get_intermediate_layer_images(self, callback_name, flkernels_count, layer_name):
         model = self.get_model_with_weights(callback_name, flkernels_count)
@@ -114,7 +128,7 @@ class UNet(object):
         np.save('../data/npydata/imgs_mask_test.npy', res)
         self.save_img()
 
-    def save_img(self):
+    def save_img(self, n):
         print("saving images")
         imgs = np.load('../data/npydata/imgs_mask_test.npy')
         imgs = imgs.astype('float32')
@@ -123,37 +137,24 @@ class UNet(object):
         imgarr = np.zeros((x, y, z), 'uint8')
         for i in range(imgs.shape[0]):
             imgarr[i] = array_to_img(imgs[i])
-        io.imsave("../data/result-label-volume.tif", imgarr)
-        self.data.load_data("../data/result-label-volume.tif", self.data.datatypes[3])
+        io.imsave("../data/result-label-volume"+"_TRY_"+n+".tif", imgarr)
+        #self.data.load_data("../data/result-label-volume.tif", self.data.datatypes[3])
 
 
 if __name__ == '__main__':
-    callback_name = "unet_768x1024_16_10_1"
-    flkernels_count = 16
+    callback_name = "unet"
+    flkernels_count = 8
     epochs = 10
-    batch_size = 1
+    batch_size = 2
     root = Tk()
     data = ImageData()
     unet = UNet(data)
-    # unet.train(callback_name, flkernels_count, batch_size, epochs)
 
-    """
-    flk = [8]
+    i=8
+    #for i in range(4, 10, 2):
+    unet.train(callback_name+"_"+str(i)+"_"+str(epochs)+"_"+str(batch_size), i, batch_size, epochs)
 
-    for i in flk:
-        callback_name = "256x256_k" + str(i) + "_e5_b4"
-        train_unet(x_t, y_t, callback_name, i, batch_size, epochs)
-
-    for i in flk:
-        callback_name = "256x256_k" + str(i) + "_e10_b4"
-        train_unet(x_t, y_t, callback_name, i, 10, epochs)
-    """
-    #unet.get_intermediate_layer_images(callback_name, flkernels_count, "pool2")
-    unet.predict(unet.get_model_with_weights("unet_768x1024_16_10_1", 16))
-    """
-    flkernels_count =   16
-    batch_size = 1
-    callback_name = "256x256_k" + str(flkernels_count) + "_e5_b" + str(batch_size)
-    layer_name = "out"
-    get_intermediate_layer_input(x_p, y_p, callback_name, flkernels_count, layer_name)
-    """
+    # unet.get_intermediate_layer_images(callback_name, flkernels_count, "pool2")
+    #for i in range(4, 10, 2):
+    unet.predict(unet.get_model_with_weights(callback_name+"_"+str(i)+"_"+str(epochs)+"_"+str(batch_size),
+                                                 i), str(i))

@@ -14,7 +14,7 @@ class GUI:
         self.data = data
         self.root = root
         self.root.resizable(width=False, height=False)
-        self.root.geometry('{}x{}'.format(1400, 520))
+        self.root.geometry('640x580')
         self.add_labels()
         self.add_buttons()
         self.add_first_menu()
@@ -27,22 +27,17 @@ class GUI:
     def add_buttons(self):
         self.button_next = Button(text='Next Slice')
         self.button_previous = Button(text='Previous Slice')
-        self.button_analyze = Button(text='Analyze')
         self.button_next.bind('<Button-1>', self.next_button_func)
         self.button_previous.bind('<Button-1>', self.previous_button_func)
-        self.button_analyze.bind('<Button-1>', self.analyze_button_func)
         self.button_previous.pack(side=BOTTOM)
         self.button_next.pack(side=BOTTOM)
-        self.button_analyze.pack(side=TOP)
         return 1
 
     def add_labels(self):
         self.label = Label(self.root)
-        self.label2 = Label(self.root)
         self.label3 = Label(self.root, text='Slice №\n')
-        self.label.pack(side=LEFT)
-        self.label2.pack(side=RIGHT)
         self.label3.pack(side=TOP)
+        self.label.pack(side=TOP)
         return 1
 
     def add_first_menu(self):
@@ -58,7 +53,7 @@ class GUI:
     def add_second_menu(self):
         self.second_menu = Menu(self.main_menu)
         self.main_menu.add_cascade(label='Show Data', menu=self.second_menu)
-        self.second_menu.add_command(label='Train Images1', command=self.show_train_images)
+        self.second_menu.add_command(label='Train Images', command=self.show_train_images)
         self.second_menu.add_command(label='Train Labels', command=self.show_train_labels)
         self.second_menu.add_command(label='Test Images', command=self.show_test_images)
         self.second_menu.add_command(label='Test Labels', command=self.show_test_labels)
@@ -203,7 +198,6 @@ class GUI:
 
     def __labels_renew(self):
         self.label.configure(image=self.data.img)
-        self.label2.configure(image=self.data.img)
         self.label3.configure(text='Slice №\n' + str(self.data.current_num + 1))
 
     def next_button_func(self, event):
