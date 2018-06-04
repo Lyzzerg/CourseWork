@@ -100,7 +100,7 @@ class UNet(object):
         model_checkpoint = ModelCheckpoint("../Unet/weights/" + callback_name + '.hdf5', monitor='loss', verbose=1,
                                            save_best_only=True)
 
-        tensorboard_checkpoint = TensorBoard(log_dir='../Unet', histogram_freq=0, write_graph=True, batch_size=2,
+        tensorboard_checkpoint = TensorBoard(log_dir='../Unet', histogram_freq=1, write_graph=True, batch_size=2,
                                              write_images=True, write_grads=True, embeddings_metadata=True)
         print('Fitting model...')
         model.fit(self.train_images[0:165], self.train_mask[0:165], batch_size=batch_size, epochs=epochs, verbose=1,
@@ -150,7 +150,7 @@ if __name__ == '__main__':
     data = ImageData()
     unet = UNet(data)
 
-    i=8
+    i = 8
     #for i in range(4, 10, 2):
     unet.train(callback_name+"_"+str(i)+"_"+str(epochs)+"_"+str(batch_size), i, batch_size, epochs)
 
