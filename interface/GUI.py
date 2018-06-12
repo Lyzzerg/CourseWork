@@ -13,6 +13,7 @@ class GUI:
         self.network = network
         self.data = data
         self.root = root
+        self.root.title("U-Net")
         self.root.resizable(width=False, height=False)
         self.root.geometry('640x580')
         self.add_labels()
@@ -64,7 +65,7 @@ class GUI:
         self.main_menu.add_cascade(label='Neural Network', menu=self.third_menu)
         self.third_menu.add_command(label='Train', command=self.train_network)
         self.third_menu.add_command(label='Predict', command=self.predict_test)
-        self.third_menu.add_command(label='Intermediate Layer', command=self.predict_intermediate)
+        #self.third_menu.add_command(label='Intermediate Layer', command=self.predict_intermediate)
         return 1
 
     def __train_window(self):
@@ -142,7 +143,7 @@ class GUI:
         label2 = Label(modal_frame, text='FL kernels count')
         label5 = Label(modal_frame, text='')
 
-        dir = '../Unet/weights'
+        dir = '../Unet/models'
         files = os.listdir(dir)
 
         weights_name_list = Listbox(modal_frame, height=6, width=25)
@@ -190,7 +191,7 @@ class GUI:
 
     def predict_test(self):
         callback, flkernel = self.__predict_window()
-        self.network.predict(self.network.get_model_with_weights(callback, flkernel))
+        self.network.predict(self.network.get_trained_model(callback))
 
     def predict_intermediate(self):
 
@@ -267,7 +268,7 @@ class GUI:
         modal_frame = Frame(modal_window)
         modal_window.resizable(width=False, height=False)
 
-        dir = '../Unet/weights'
+        dir = '../Unet/models'
         files = os.listdir(dir)
         print(files)
 
